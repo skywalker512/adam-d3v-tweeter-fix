@@ -2,23 +2,29 @@
 
 **English** | [简体中文](README.zh-CN.md)
 
-An unofficial modification of the ADAM Audio D3V firmware 1.7 that removes the gate which
-silences the tweeters at low listening levels, together with the reverse-engineering toolkit
-that was used to find it.
+Unofficial patch for ADAM Audio D3V firmware 1.7 that removes the low-volume tweeter noise gate,
+plus the reverse-engineering toolkit used to find it.
+
+- **21 changed bytes** in the DSP gain table — no MCU code changes, same binary size as factory 1.7.
+- **Protection intact:** tweeter limiter, woofer compressor/limiter, and thermal protection are untouched.
+- **Reversible:** flash ADAM's official 1.7 updater at any time to restore stock firmware.
 
 > [!WARNING]
-> This is not an ADAM Audio product and is not endorsed by ADAM Audio or Focusrite. Flashing
-> modified firmware is at your own risk and may void your warranty. The modified firmware has
-> been flashed on **one** speaker pair, and the result was judged **by ear only**.
+> Unofficial and not affiliated with ADAM Audio or Focusrite. Flash at your own risk (may void
+> warranty). Tested so far on **one** speaker pair via macOS, judged **by ear only**.
 
-## The problem
+## Why it happens
 
-At low volume the D3V tweeters fade out or cut out during quiet passages, while the woofers keep
-playing. ADAM's firmware 1.7 lists "Improved tweeter behavior with very low signal levels" in its
-change log.
+Even on official firmware 1.7, the D3V tweeters can fade or cut out during quiet passages at low
+volume while the woofers keep playing.
 
-The 1.7 image still contains the cause. The DSP (an ADAU1701) runs a level-dependent gain table
-on the tweeter path, after the volume control. Its lowest seven points form a downward expander:
+To hide idle hiss, the factory ADAU1701 DSP puts an automatic attenuation rule (a noise gate) on
+the tweeter path: whenever the high-frequency signal falls below roughly `-75 dBFS`, the DSP treats
+it as noise and cuts it by another 17–31 dB (dropping perceived loudness to about 1/3 or under 1/8).
+
+Because this check runs **after** the volume control, turning the volume down pushes quiet highs in
+normal music below that threshold too, so the DSP mistakes them for noise and suddenly muffles or
+cuts out the tweeters:
 
 | Tweeter-band level | Factory 1.7 gain | This mod |
 |---|---|---|
@@ -28,140 +34,126 @@ on the tweeter path, after the volume control. Its lowest seven points form a do
 | -81 dBFS | -31.0 dB | 0 dB |
 | -78 dBFS | -17.0 dB | 0 dB |
 | -75 dBFS | -0.4 dB | 0 dB |
-| -72 dBFS | -0.0 dB | 0 dB |
+| -72 dBFS | < -0.01 dB | 0 dB |
 | -69 … -15 dBFS | 0 dB | unchanged |
 | -12 … +6 dBFS (limiter) | -0.1 … -13.5 dB | unchanged |
 
-So once the high-frequency content after the volume control drops below about -75 dBFS, the
-tweeter is turned down by another 17 to 31 dB.
-
-## The change
-
-Seven parameter words (`p137`..`p143`) are set to 1.0. That is 21 changed bytes in a 22124-byte
-image; the size does not change. No code is touched. The tweeter limiter, the woofer compressor
-and limiter and the thermal protection are byte-identical to the factory image.
-
-The whole change is [`mods/no-tweeter-gate.params`](mods/no-tweeter-gate.params).
-
-## What is verified and what is not
-
-| | Status |
-|---|---|
-| The toolkit rebuilds the factory image byte for byte from generated source | Checked by CI on every push |
-| Modified image differs from factory in exactly those 21 bytes | Checked by CI |
-| Flashing from macOS (Apple Silicon) with the patched updater | Done once, on the author's D3V, no problems |
-| Tweeter dropout gone | The author's listening impression. No measurement |
-| Windows package | Same firmware, ADAM's unmodified Windows program. CI checks that it starts. **Never used to flash a real D3V** |
-| Long-term behaviour | Unknown. One unit, first flashed in November 2026 |
+This patch removes that attenuation by setting those seven 4-byte parameters (`p137`..`p143`, 28
+bytes total; 21 bytes change since each high byte is already `0x00`) to `1.0` (`0x00800000`). The
+`-12 … +6 dBFS` overload limiter is kept byte-identical to factory. See
+[`mods/no-tweeter-gate.params`](mods/no-tweeter-gate.params).
 
 ## Download
 
 Get the files from the [latest release](https://github.com/skywalker512/adam-d3v-tweeter-fix/releases/latest).
+Most users only need the `.zip` for their OS — the patched firmware is already bundled inside.
 
 | File | Use |
 |---|---|
-| `D3V-Updater-No-Tweeter-Gate-macOS.zip` | Updater app for macOS (Intel and Apple Silicon) |
-| `D3V-Updater-No-Tweeter-Gate-Windows.zip` | Updater for Windows 10/11 x64, no installation |
-| `d3v_patch.py` | Makes the same updaters on your own computer from ADAM's official download |
+| `D3V-Updater-No-Tweeter-Gate-macOS.zip` | **macOS** (Intel & Apple Silicon) pre-patched updater |
+| `D3V-Updater-No-Tweeter-Gate-Windows.zip` | **Windows 10/11 x64** pre-patched portable updater |
+| `d3v_patch.py` | Optional: build the same updaters locally from ADAM's official package |
+| `D3V_MCU+DSP_V1_7_RC4_no_tweeter_gate.bin` | Optional: raw patched firmware image |
+| `SHA256SUMS.txt` | Optional: SHA-256 checksums |
 
-The ready-made updaters are ADAM's updater program with the modified firmware file inside.
+## How to flash
 
-## Flashing
+1. Unplug the D3V's power cable and connect USB-C directly to your computer (no USB hub).
+2. Launch the patched updater.
+3. **Hold the volume knob**, plug power back in, and release when the LED pulses **purple**.
+4. Follow the updater prompts without unplugging (about 10–15 s). The LED flashes green three times
+   and restarts automatically.
 
-1. Unplug the D3V's power supply. Connect the speaker to the computer with USB-C, directly, not
-   through a hub.
-2. Start the updater (see the notes for your system below).
-3. Hold the volume knob down, plug the power supply back in, and release the knob when the LED
-   pulses purple.
-4. Follow the instructions in the updater. Do not unplug anything while it runs. At the end the
-   LED flashes green three times and the speaker restarts.
+- **macOS:** Unzip to get `D3V Updater (No Tweeter Gate).app`. Because it is ad-hoc signed, allow it
+  in **System Settings → Privacy & Security → Open Anyway**, or run:
+  `xattr -dr com.apple.quarantine "D3V Updater (No Tweeter Gate).app"`
+- **Windows:** Extract the full zip first, then run `D3V Updater.exe` (do not launch it from inside
+  the zip preview). SmartScreen may warn about an unknown publisher. If the window opens blank,
+  install the Microsoft Edge WebView2 runtime (preinstalled on Windows 11).
 
-**macOS.** The app carries an ad-hoc signature, because changing the firmware file invalidates
-ADAM's. macOS blocks it on first start: open System Settings → Privacy & Security and choose
-"Open Anyway", or run `xattr -dr com.apple.quarantine "D3V Updater (No Tweeter Gate).app"`.
-An app you build yourself with `d3v_patch.py` is not blocked.
+## Rollback
 
-**Windows.** Unzip the whole folder and start `D3V Updater.exe` inside it; the `resources`
-folder must stay next to it. SmartScreen may warn about an unknown publisher (ADAM signs only
-its installer, not this program). The program needs the Microsoft Edge WebView2 runtime, which
-Windows 11 includes; if the window stays empty, install that runtime from Microsoft.
-
-## Going back
-
-Flash again with the official updater from
-[ADAM Audio](https://www.adam-audio.com/en/news/industry/d3v-firmware-updater/). The steps are
-the same and the result is the factory 1.7 firmware.
-
-If an update fails or the speaker does not start afterwards, repeat the steps above. Update mode
-(purple LED) belongs to a separate bootloader that the update does not overwrite. This is
-concluded from the firmware image; the bootloader itself was not examined.
+Run the official updater from
+[ADAM Audio](https://www.adam-audio.com/en/news/industry/d3v-firmware-updater/) with the same
+purple-LED steps to return to stock 1.7. If a flash fails, repeat the purple-LED steps — update mode
+lives in a separate bootloader that flashing does not overwrite (inferred from the firmware image;
+the bootloader itself was not read out).
 
 ## Side effects
 
-- The gate also hid noise. With the mod, very quiet hiss from the source or the USB DAC can be
-  audible with your ear close to the tweeter.
-- Nothing else is expected to change. Auto standby and the protection circuits do not use the
-  changed table entries. This has not been measured on hardware.
+- **Close-up idle hiss:** Without the gate, faint hiss from the USB DAC or source can be audible
+  with your ear close to the tweeter in a quiet room.
+- **Auto standby and driver protection are unaffected** based on firmware analysis (not measured with
+  test instruments).
 
-## Build the updater yourself
+## Verification status
 
-If you prefer not to run a prebuilt package, `d3v_patch.py` does the same on your computer. It
-needs Python 3.8 or newer and nothing else.
+| Item | Status |
+|---|---|
+| Factory 1.7 rebuilt byte-for-byte from disassembled source | Verified by CI on every push |
+| Patched image differs in only those 21 bytes | Verified by CI |
+| macOS (Apple Silicon) flash & dropout fix | Tested once on the author's pair, verified by ear |
+| Windows package | Pre-patched with the same firmware; launches in CI, **not yet live-flashed** |
+| Long-term behaviour | Unknown (one pair, first flashed Nov 2026) |
 
+---
+
+## Developers & DIY build
+
+### Build the updater yourself
+
+[`patcher/d3v_patch.py`](patcher/d3v_patch.py) (also in Releases as `d3v_patch.py`) builds the same
+updaters locally using Python 3.8+ with no extra dependencies:
+
+```bash
+python3 patcher/d3v_patch.py  # macOS -> out/D3V Updater (No Tweeter Gate).app
+py patcher\d3v_patch.py       # Windows -> out\D3V Updater (No Tweeter Gate)\
 ```
-python3 d3v_patch.py          # macOS: creates out/D3V Updater (No Tweeter Gate).app
-py d3v_patch.py               # Windows: creates out\D3V Updater (No Tweeter Gate)\
-```
+*(Omit `patcher/` if downloaded standalone from Releases.)*
 
-It downloads ADAM's official updater 1.0.0, checks its SHA-256, changes the 21 bytes, checks the
-SHA-256 of the result (`59f60c30…e98fef`) and puts it into a copy of the updater. It never
-talks to the speaker. `--official FILE` uses a package you downloaded yourself.
+It downloads ADAM's official Updater 1.0.0 (which bundles factory firmware 1.7), checks SHA-256,
+patches the 21 bytes (result SHA-256 `59f60c30…e98fef`), and repackages it without talking to the
+speaker. Use `--official FILE` for a local official download.
 
-## Build the firmware from source
+### Build firmware from source
 
-The toolkit in [`kit/`](kit) turns the factory image into relocatable assembly, rebuilds it, and
-runs it in an ARMv6-M emulator with a model of the board. It needs Python 3 and LLVM
-(`brew install llvm`, or `apt install clang llvm`).
+[`kit/`](kit) disassembles the factory image to relocatable ARMv6-M assembly, rebuilds it, and runs
+board-level emulator tests (requires Python 3 and LLVM):
 
-```
-python3 kit/fetch.py                             # factory image from ADAM's download, SHA-256 checked
+```bash
+python3 kit/fetch.py                             # extract factory image (SHA-256 checked)
 python3 kit/split.py                             # image -> build/app.S
-python3 kit/build.py                             # must print: IDENTICAL to the factory 1.7 RC4 image
+python3 kit/build.py                             # must match factory 1.7 RC4 byte-for-byte
 python3 kit/test_reloc.py                        # relocation check
 python3 kit/test_emu.py                          # emulator checks
 python3 kit/build.py --params no-tweeter-gate    # -> build/no-tweeter-gate.bin
-python3 kit/dsp.py list                          # DSP parameters as text
+python3 kit/dsp.py list                          # dump DSP parameters
 ```
 
-[`mods/`](mods) holds further experiments as patches against the generated source. None of them
-is in a release, and they are not recommended for flashing:
+Experimental patches in [`mods/`](mods) (not in releases, not recommended for flashing):
 
-| Mod | State |
+| Mod | Status |
 |---|---|
-| `fix-usb-resume-mute` | Keeps the speaker muted when USB is re-plugged while muted. Emulator only |
-| `usb-guard` + `delay_ms.c` | Hardware mute when USB power disappears. Emulator only, shelved |
-| `usb-probe` + `_printf_core.c` | Diagnostic: can the MCU see USB traffic? Flashed once; the answer was no |
+| `fix-usb-resume-mute` | Keep mute state across USB replug (emulator only) |
+| `usb-guard` + `delay_ms.c` | Hardware mute on USB 5 V loss (emulator only, shelved) |
+| `usb-probe` + `_printf_core.c` | Diagnostic: can the MCU listen to USB? Flashed once — no |
 
-[`AGENTS.md`](AGENTS.md) is the lab notebook: hardware facts, rules for changing the firmware,
-and what was tried.
+Full hardware notes and experiments: [`AGENTS.md`](AGENTS.md).
 
-## Other finding: the USB pop
+### Other finding: USB sleep / KVM pop
 
-The D3V pops when the USB host goes to sleep or a KVM/hub switches hosts. This was investigated
-and cannot be fixed in the MCU firmware:
+The D3V pops when a USB host sleeps or a powered KVM/hub switches hosts. MCU firmware cannot fix
+this:
 
-- The USB DAC is a TI PCM2704C. When the bus goes idle it suspends and switches its outputs off,
-  and TI documents the resulting pop for this chip family.
-- In listening tests the MCU reacts only to USB 5 V being present. A host switch on a powered hub or a sleeping
-  computer leaves 5 V on, so the firmware never learns about it. A probe build showed that the
-  MCU cannot see the USB data lines in normal operation either.
-- Workarounds: click the knob to mute before switching, or feed the D3V through its analog
-  input.
+- The USB DAC (TI PCM2704C) suspends when the bus goes idle and switches off its outputs — a known
+  TI-documented pop.
+- The MCU only senses USB 5 V, which stays high on host sleep or powered hub switches, and a
+  diagnostic probe confirmed the MCU cannot see the USB data lines during normal operation.
+- **Workarounds:** Click the knob to mute before switching hosts, or use the TRS analog input.
 
 ## Legal
 
-The tools, patches and documentation in this repository are under the [MIT license](LICENSE).
-The repository contains no ADAM Audio firmware or software; the tools download it from ADAM
-Audio's server. Release packages contain ADAM Audio's updater and a modified copy of its
-firmware, which remain the property of ADAM Audio GmbH. "ADAM Audio" and "D3V" are trademarks
-of their owner. If you are the rights holder and want something removed, please open an issue.
+Tools, patches, and docs are [MIT licensed](LICENSE). No ADAM Audio binaries are stored in this
+repository; scripts fetch them from ADAM Audio's server. Release archives contain ADAM Audio's
+updater and a modified firmware copy, which remain the property of ADAM Audio GmbH. "ADAM Audio"
+and "D3V" are trademarks of their respective owners. Rights holders may open an issue for removal.
