@@ -1,0 +1,22 @@
+--- a/build/app.S
++++ b/build/app.S
+@@ -1647,6 +1647,10 @@
+     ldrb r0, [r0, #0]                        @ 2c40
+     cmp r0, #0                               @ 2c42
+     beq loc_2c4e                             @ 2c44
++    ldr r0, lit_mute_flag                    @ mod: stay silent while muted
++    ldr r0, [r0, #0]
++    cmp r0, #0
++    bne loc_2c4e
+     ldr r1, lit_2c5c                         @ 2c46
+     ldrb r0, [r1, #0]                        @ 2c48
+     bl dsp_set_volume                        @ 2c4a
+@@ -1661,6 +1665,8 @@
+     PTR 0x20000054                           @ 2c58 = 20000054
+ lit_2c5c:
+     PTR 0x200000d4                           @ 2c5c = 200000d4
++lit_mute_flag:
++    PTR 0x200000c8                           @ mod: mute flag, same variable main() tests
+ usb_idle_mute:
+     push {r4, lr}                            @ 2c60
+     ldr r0, lit_2c84                         @ 2c62

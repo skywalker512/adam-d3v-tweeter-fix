@@ -1,0 +1,25 @@
+# ADAM Audio's files (factory firmware, official updater, patched copies) are never committed.
+# kit/fetch.py and patcher/d3v_patch.py download them from ADAM's server and check their SHA-256.
+/fw/
+/pkg/
+/patched/
+
+# Generated
+/build/
+/out/
+__pycache__/
+.DS_Store
+*.wav
+
+# Local analysis dumps that reproduce the vendor firmware (disassembly, decompilation, DSP blocks)
+/dsp/
+/ida/
+/ghidra/*
+!/ghidra/scripts/
+
+# Third-party documents and notes about other devices
+/ref/*
+!/ref/sigmadsp_disasm.py
+
+# Superseded by patcher/d3v_patch.py
+/patch_tweeter_gate.py

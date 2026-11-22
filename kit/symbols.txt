@@ -1,0 +1,119 @@
+# addr  name                       # how sure / evidence
+# --- startup + C runtime (Keil ARMCC microlib/stdlib, Nuvoton M031 BSP startup) ---
+20c0 __main
+20c8 __rt_entry_to_main
+20d8 HardFault_Handler             # semihosting BKPT 0xAB check, matches M031 BSP retarget.c
+211c SH_DoCommand
+2130 Reset_Handler                 # unlock 0x59/0x16/0x88, PORCTL=0x5AA5: M031 BSP startup
+2156 NMI_Handler
+215a SVC_Handler
+215c PendSV_Handler
+2160 Default_Handler
+218c __aeabi_uidivmod
+21b8 __aeabi_idivmod
+21e0 __aeabi_memcpy
+2204 __aeabi_dmul
+22d4 __aeabi_ddiv
+23c4 __aeabi_i2d
+23ec __aeabi_d2uiz
+2428 __aeabi_uldivmod
+2488 __aeabi_llsr
+24aa _double_round
+24c4 _double_epilogue
+2568 __aeabi_dadd
+26b2 __aeabi_dsub
+26be __aeabi_drsub
+26d0 __ARM_scalbn
+2724 __scatterload
+2748 __aeabi_llsl
+2768 __aeabi_lasr
+278e _dsqrt
+2fa0 Hard_Fault_Handler
+30f4 SendChar_ToSemihost
+36d4 SysTick_Handler               # empty
+3c34 printf
+3c54 __ARM_clz
+3c82 __ARM_common_switch8
+3ca0 __ARM_fpclassify
+3ccc __kernel_poly
+3dcc __scatterload_copy
+3ddc __scatterload_zeroinit
+3dec __set_errno
+3df8 _printf_core
+426e fputc
+4d08 pow
+5a74 sqrt
+5abc stackDump
+# --- Nuvoton M031 StdDriver ---
+2830 ADC_Open
+2968 CLK_EnableModuleClock
+29a8 CLK_EnableSysTick
+29f0 CLK_EnableXtalRC
+2a00 CLK_GetPCLK0Freq
+2a20 CLK_GetPCLK1Freq
+2a40 CLK_GetPLLClockFreq
+2ac0 CLK_SetHCLK
+2b30 CLK_SetModuleClock
+2bbc CLK_WaitClockReady
+2c8c FMC_Close
+2ca0 FMC_Erase
+2d24 FMC_Erase_SPROM
+2da0 FMC_Open
+2db4 FMC_Read
+2e08 FMC_Write
+2f40 GPIO_SetMode
+30b4 SYS_UnlockReg
+30d4 SYS_UnlockReg_2
+36d8 SystemCoreClockUpdate
+373c SystemInit
+378c TIMER_GetModuleClock
+3820 TIMER_Open
+# --- application ---
+28f0 adc_to_switch3                # ADC value -> 3-position switch index
+2924 adc_init
+2c00 standby_enter
+2c1c standby_leave
+2c24 usb_active_restore_volume     # waits 2 s, does not check mute flag
+2c60 usb_idle_mute                 # volume 0, waits 1 s
+2ec4 gpio_init
+2f70 settings_get_input
+2f80 settings_get_autostandby
+2f90 settings_get_swap
+2fcc led_soft_pwm                  # breathing LED while muted
+3024 clock_init
+314c sw_room_update                # DSP param 0x13
+3208 sw_desk_update                # DSP param 0x28
+35e4 sw_position_update            # DSP param 0x33
+317c input_select
+3238 mute_set
+3288 autostandby_set
+32c4 swap_set
+3304 temp_protect_update           # ADC ch5 -> limiter thresholds 0xb7/0xc6, volume back-off
+3614 knob_update                   # ADC / 0x90 -> step 0..28
+3688 i2c_start
+36ac i2c_stop
+3874 TMR0_IRQHandler               # 10 kHz tick
+3934 timer_init
+3980 volume_step_to_gain           # pow(10, dB/20) * 2^23
+3bcc i2c_send_byte
+40cc adc_poll
+41cc delay_ms
+41e8 i2c_half_bit_delay
+4210 i2c_write_block
+4280 dsp_boot
+42c8 dsp_safeload_commit           # core reg 0x081C = 0x003C
+434c led_set_state
+4624 settings_load                 # scans flash page 0x7E00
+46a4 main
+4ac8 standby_enter_impl
+4b90 power_on_init
+5704 dsp_safeload_addr
+5790 dsp_safeload_param
+586c settings_save
+58d4 dsp_set_swap
+5970 dsp_set_polarity
+59bc dsp_set_room
+59d0 dsp_set_position
+59e4 dsp_set_desk
+59f8 dsp_set_volume
+5b64 dsp_set_limiter_threshold

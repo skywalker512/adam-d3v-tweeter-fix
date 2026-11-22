@@ -1,0 +1,19 @@
+--- a/build/app.S
++++ b/build/app.S
+@@ -5223,6 +5223,7 @@
+     bl power_on_init                         @ 46e0
+     b loc_4a62                               @ 46e4
+ loc_46e6:
++    bl usb_guard                             @ mod: every pass of the main loop (see mods/delay_ms.c)
+     ldr r0, lit_4a6c                         @ 46e6
+     ldr r0, [r0, #0]                         @ 46e8
+     cmp r0, #0                               @ 46ea
+@@ -7931,7 +7932,7 @@
+     PTR ABS(__scatterload_copy)              @ 7544 = 00003dcc
+     PTR ABS(_image_end)                      @ 7548 = 0000766c
+     PTR 0x20000114                           @ 754c = 20000114
+-    PTR 0x00000214                           @ 7550 = 00000214
++    PTR 0x00000218                           @ 7550: zero-init length + 4, covers GUARD at 0x20000328
+     PTR ABS(__scatterload_zeroinit)          @ 7554 = 00003ddc
+     .balign 4, 0
+ data_init:

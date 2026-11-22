@@ -1,0 +1,11 @@
+--- a/build/app.S
++++ b/build/app.S
+@@ -5215,7 +5215,7 @@
+     bl CLK_EnableSysTick                     @ 46c6
+     bl timer_init                            @ 46ca
+     bl adc_init                              @ 46ce
+-    bl gpio_init                             @ 46d2
++    bl gpio_init_probe                       @ mod: gpio_init + 10 s USB listen probe (mods/_printf_core.c)
+     movs r0, #0                              @ 46d6
+     ldr r1, lit_4a68                         @ 46d8
+     str r0, [r1, #60]                        @ 46da

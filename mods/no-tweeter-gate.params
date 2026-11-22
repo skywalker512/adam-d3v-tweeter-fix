@@ -1,0 +1,9 @@
+# Tweeter dynamics table, lowest seven points (-90 .. -72 dBFS): factory values attenuate
+# by 17..31 dB (downward expander).  Set them to unity; the limiter end (p163..p169) is untouched.
+p137 = 1.0     # factory 0x00090fcc  -23.0 dB
+p138 = 1.0     # factory 0x00066a4d  -26.0 dB
+p139 = 1.0     # factory 0x00049b92  -28.9 dB
+p140 = 1.0     # factory 0x0003a013  -31.0 dB
+p141 = 1.0     # factory 0x0012149a  -17.0 dB
+p142 = 1.0     # factory 0x00799dae   -0.4 dB
+p143 = 1.0     # factory 0x007fff48   -0.0 dB

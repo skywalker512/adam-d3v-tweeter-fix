@@ -1,0 +1,117 @@
+name: build
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  PATCHED_SHA256: 59f60c30c9853a5c77bace00026e78ab91851aa39a294e77aee5959e39e98fef
+
+jobs:
+  firmware:
+    name: firmware (rebuild from source + emulator tests)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install LLVM
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends clang llvm
+      - name: Fetch the factory image from ADAM Audio
+        run: python3 kit/fetch.py
+      - name: Factory image -> source -> image, must be byte-identical
+        run: python3 kit/split.py && python3 kit/build.py
+      - name: Relocation check
+        run: python3 kit/test_reloc.py
+      - name: Emulator checks
+        run: python3 kit/test_emu.py
+      - name: C replacement check
+        run: python3 kit/test_c.py
+      - name: Build the no-tweeter-gate image
+        run: |
+          mkdir -p dist
+          python3 kit/build.py --params no-tweeter-gate -o "$PWD/dist/D3V_MCU+DSP_V1_7_RC4_no_tweeter_gate.bin"
+          echo "$PATCHED_SHA256  dist/D3V_MCU+DSP_V1_7_RC4_no_tweeter_gate.bin" | sha256sum -c -
+      - uses: actions/upload-artifact@v4
+        with:
+          name: firmware
+          path: dist/*.bin
+          if-no-files-found: error
+
+  package:
+    name: updater (${{ matrix.target }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { target: mac, os: macos-latest }
+          - { target: win, os: windows-latest }
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Build the patched updater with the same tool users run
+        run: python patcher/d3v_patch.py ${{ matrix.target }} -o out
+      - name: Check the firmware inside
+        run: |
+          f=$(find out -name 'D3V_MCU+DSP_V1_7_RC4.bin' -not -path '*/official/*')
+          python -c "import hashlib,sys; h=hashlib.sha256(open(sys.argv[1],'rb').read()).hexdigest(); print(h, sys.argv[1]); sys.exit(h != sys.argv[2])" "$f" "$PATCHED_SHA256"
+      - name: Zip (macOS)
+        if: matrix.target == 'mac'
+        run: |
+          codesign --verify --deep --strict --verbose=2 "out/D3V Updater (No Tweeter Gate).app"
+          mkdir dist && ditto -c -k --keepParent "out/D3V Updater (No Tweeter Gate).app" dist/D3V-Updater-No-Tweeter-Gate-macOS.zip
+      - name: Zip (Windows)
+        if: matrix.target == 'win'
+        run: |
+          mkdir dist
+          python -c "import shutil; shutil.make_archive('dist/D3V-Updater-No-Tweeter-Gate-Windows', 'zip', 'out', 'D3V Updater (No Tweeter Gate)')"
+      - name: Smoke test, the portable updater starts without the installer (Windows, no device attached)
+        if: matrix.target == 'win'
+        shell: pwsh
+        run: |
+          $p = Start-Process -FilePath "out/D3V Updater (No Tweeter Gate)/D3V Updater.exe" -PassThru
+          Start-Sleep -Seconds 15
+          $p.Refresh()
+          if ($p.HasExited) { Write-Error "updater exited with code $($p.ExitCode)"; exit 1 }
+          Write-Host "running, window title: '$($p.MainWindowTitle)'"
+          Stop-Process -Id $p.Id -Force
+      - uses: actions/upload-artifact@v4
+        with:
+          name: updater-${{ matrix.target }}
+          path: dist/*.zip
+          if-no-files-found: error
+
+  release:
+    name: GitHub release
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [firmware, package]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+      - name: Publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cp patcher/d3v_patch.py dist/
+          cd dist
+          sha256sum * > SHA256SUMS.txt
+          cat SHA256SUMS.txt
+          gh release create "$GITHUB_REF_NAME" * --verify-tag \
+            --title "No Tweeter Gate $GITHUB_REF_NAME (firmware 1.7)" \
+            --notes-file ../.github/RELEASE_NOTES.md
