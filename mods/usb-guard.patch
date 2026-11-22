@@ -15,5 +15,5 @@
 -    PTR 0x00000214                           @ 7550 = 00000214
 +    PTR 0x00000218                           @ 7550: zero-init length + 4, covers GUARD at 0x20000328
      PTR ABS(__scatterload_zeroinit)          @ 7554 = 00003ddc
-     .balign 4, 0
+     .balignw 4, 0
  data_init:

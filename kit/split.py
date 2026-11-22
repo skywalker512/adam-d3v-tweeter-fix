@@ -121,7 +121,7 @@ def main():
             a = (a + 6 if a in KNOWN_PADS else a + 2)
             continue
         if a in align:
-            o.append('    .balign %d, 0' % align[a])
+            o.append('    .balignw %d, 0' % align[a])   # 2-byte fill: LLVM < 20 turns a 1-byte zero fill into NOPs in code
         if a in lab:
             o.append('%s:' % lab[a])
         if ALL:

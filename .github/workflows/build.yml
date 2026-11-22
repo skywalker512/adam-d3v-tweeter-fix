@@ -18,7 +18,7 @@ jobs:
     name: firmware (rebuild from source + emulator tests)
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Install LLVM
         run: sudo apt-get update && sudo apt-get install -y --no-install-recommends clang llvm
       - name: Fetch the factory image from ADAM Audio
@@ -36,7 +36,7 @@ jobs:
           mkdir -p dist
           python3 kit/build.py --params no-tweeter-gate -o "$PWD/dist/D3V_MCU+DSP_V1_7_RC4_no_tweeter_gate.bin"
           echo "$PATCHED_SHA256  dist/D3V_MCU+DSP_V1_7_RC4_no_tweeter_gate.bin" | sha256sum -c -
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: firmware
           path: dist/*.bin
@@ -55,8 +55,8 @@ jobs:
       run:
         shell: bash
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
         with:
           python-version: '3.12'
       - name: Build the patched updater with the same tool users run
@@ -75,7 +75,7 @@ jobs:
         run: |
           mkdir dist
           python -c "import shutil; shutil.make_archive('dist/D3V-Updater-No-Tweeter-Gate-Windows', 'zip', 'out', 'D3V Updater (No Tweeter Gate)')"
-      - name: Smoke test, the portable updater starts without the installer (Windows, no device attached)
+      - name: Smoke test, the portable updater starts and opens its WebView without the installer (no device attached)
         if: matrix.target == 'win'
         shell: pwsh
         run: |
@@ -83,9 +83,11 @@ jobs:
           Start-Sleep -Seconds 15
           $p.Refresh()
           if ($p.HasExited) { Write-Error "updater exited with code $($p.ExitCode)"; exit 1 }
-          Write-Host "running, window title: '$($p.MainWindowTitle)'"
+          $kids = (Get-CimInstance Win32_Process -Filter "ParentProcessId=$($p.Id)").Name
+          Write-Host "running, window title: '$($p.MainWindowTitle)', child processes: $kids"
+          if ($kids -notcontains 'msedgewebview2.exe') { Write-Error "no WebView2 child process: the window was not created"; exit 1 }
           Stop-Process -Id $p.Id -Force
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: updater-${{ matrix.target }}
           path: dist/*.zip
@@ -99,8 +101,8 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/download-artifact@v4
+      - uses: actions/checkout@v7
+      - uses: actions/download-artifact@v8
         with:
           path: dist
           merge-multiple: true

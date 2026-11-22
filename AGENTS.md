@@ -62,6 +62,10 @@ emulator check in `test_emu.py` style before anyone considers flashing it.
   115 cycles + 32 entry/exit by `kit/isr_budget.py`'s cycle model, so only ~38 cycles are spare, and real flash
   wait states are not modelled. Poll from the main loop / `delay_ms` instead (see `mods/delay_ms.c`).
 - The DSP instruction set is undocumented: parameters are editable, program words are not understood at bit level.
+- Assembly-only builds (factory round trip, `--mod`, `--params`) are byte-identical across LLVM 18..22 (CI uses
+  Ubuntu's clang 18). Builds with `--c` depend on the compiler version: the SHA-256 values quoted below for
+  `usb-guard` and `usb-probe` are from Homebrew LLVM 22.1.8, clang 18 gives different (untested) code.
+  `split.py` emits `.balignw N, 0`, not `.balign N, 0`, because LLVM 18 replaces a 1-byte zero fill by NOPs.
 
 ## Device log
 
